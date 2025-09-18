@@ -4,3 +4,6 @@
 [submodule "dpdk/dma_ip_drivers"]
 	path = dpdk/dma_ip_drivers
 	url = git@github.com:Xilinx/dma_ip_drivers.git
+[submodule "dpdk/open-nic-dpdk"]
+	path = dpdk/open-nic-dpdk
+	url = git@github.com:Xilinx/open-nic-dpdk.git
