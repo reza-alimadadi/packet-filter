@@ -48,6 +48,7 @@ void DPDK::shutdown() {
     rte_eal_mp_wait_lcore();
 
     for (uint16_t port_id = 0; port_id < port_num_; port_id++) {
+        /* TODO: add dpdk stats print */
         rte_eth_dev_stop(port_id);
         rte_eth_dev_close(port_id);
     }
@@ -59,7 +60,8 @@ int DPDK::dpdk_rx_loop(void* arg) {
     auto* tinfo = static_cast<thread_info*>(arg);
     DPDK* dpdk = tinfo->dpdk_instance;
 
-    /* Make sure callback is registered before starting the rx loop */
+    /* Make sure callback is registered before starting the rx loop 
+     * to avoid dropping packets or processing packets without a callback. */
     {
         std::unique_lock<std::mutex> lock(tinfo->callback_mutex);
         tinfo->callback_cv.wait(lock, [tinfo, dpdk]() -> bool {
@@ -85,6 +87,7 @@ int DPDK::dpdk_rx_loop(void* arg) {
 
         log_debug("Received %u packets on thread_id: %u", nb_rx, tinfo->thread_id);
 
+        /* Prefetch first packets to the cache for processing */
         for (uint16_t i = 0; i < nb_rx && i < DPDK_PREFETCH_NUM; i++) {
             rte_prefetch0(rte_pktmbuf_mtod(bufs[i], uint8_t*));
         }
@@ -92,13 +95,18 @@ int DPDK::dpdk_rx_loop(void* arg) {
         for (uint16_t i = 0; i < nb_rx; i++) {
             log_debug("Processing packet %u on thread_id %u with length %u",
                       i, tinfo->thread_id, rte_pktmbuf_pkt_len(bufs[i]));
+
+            /* Process the packet using the registered callback */
             int ret = tinfo->rx_callback(bufs[i]);
             if (ret < 0) {
-                rte_pktmbuf_free(bufs[i]);
                 log_warn("Packet processing failed on thread_id %u, packet %u",
                          tinfo->thread_id, i);
             }
 
+            /* Free the mbuf after processing */
+            rte_pktmbuf_free(bufs[i]);
+
+            /* Prefetch next packets */
             if (i + DPDK_PREFETCH_NUM < nb_rx) {
                 rte_prefetch0(rte_pktmbuf_mtod(bufs[i + DPDK_PREFETCH_NUM], uint8_t*));
             }

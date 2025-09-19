@@ -30,7 +30,6 @@ private:
 private:
     int init_dpdk(const char* argv_str, int num_threads);
     int port_init(uint16_t port_id);
-    int flow_control(uint16_t thread_id, std::string rule);
 
     static int dpdk_rx_loop(void* arg);
     void shutdown();
