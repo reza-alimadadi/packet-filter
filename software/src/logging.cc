@@ -95,7 +95,7 @@ void current_time(char* buf) {
 }
 
 void Log::log(int level, int line, const char* file, const char* fmt, va_list args) {
-    static const char* level_str[] = {"DEBUG", "INFO", "WARN", "ERROR", "FATAL"};
+    static const char* level_str[] = {"FATAL", "ERROR", "WARN", "INFO", "DEBUG"};
     assert(level >= 0 && level <= Log::DEBUG);
     assert(file != nullptr);
 
@@ -108,7 +108,7 @@ void Log::log(int level, int line, const char* file, const char* fmt, va_list ar
     size_t offset = 0;
     offset += snprintf(log_buf + offset, sizeof(log_buf) - offset, "%s ", level_str[level]);
     offset += snprintf(log_buf + offset, sizeof(log_buf) - offset, "[%s:%d] ", file, line);
-    offset += snprintf(log_buf + offset, sizeof(log_buf) - offset, "%s ", time_buf);
+    offset += snprintf(log_buf + offset, sizeof(log_buf) - offset, "%s | ", time_buf);
     offset += vsnprintf(log_buf + offset, sizeof(log_buf) - offset, fmt, args);
     offset += snprintf(log_buf + offset, sizeof(log_buf) - offset, "\n");
 
