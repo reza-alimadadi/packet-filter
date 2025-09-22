@@ -1,0 +1,12 @@
+diff --git a/plugin/p2p/box_250mhz/user_plugin_250mhz_inst.vh b/plugin/p2p/box_250mhz/user_plugin_250mhz_inst.vh
+index e9c0239..c68ec35 100644
+--- a/plugin/p2p/box_250mhz/user_plugin_250mhz_inst.vh
++++ b/plugin/p2p/box_250mhz/user_plugin_250mhz_inst.vh
+@@ -15,6 +15,7 @@
+ // limitations under the License.
+ //
+ // *************************************************************************
++`include "open_nic_shell_macros.vh"
+ initial begin
+   if (USE_PHYS_FUNC == 0) begin
+     $fatal("No implementation for USE_PHYS_FUNC = %d", 0);
