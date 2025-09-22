@@ -1,5 +1,217 @@
+diff --git a/plugin/p2p/box_250mhz/box_250mhz_address_map.v b/plugin/p2p/box_250mhz/box_250mhz_address_map.v
+index 1bf6ae3..2530bab 100644
+--- a/plugin/p2p/box_250mhz/box_250mhz_address_map.v
++++ b/plugin/p2p/box_250mhz/box_250mhz_address_map.v
+@@ -30,7 +30,11 @@
+ // --------------------------------------------------
+ //   0x0180   |  0x01FF   |  Egress of port 1
+ // --------------------------------------------------
+-//   0x1000   |  0x1FFF   |  Dummy
++//   0x1000   |  0x2FFF   |  Dummy
++// --------------------------------------------------
++//   0x2000   |  0x2FFF   |  User logic 0
++// --------------------------------------------------
++//   0x3000   |  0x3FFF   |  User logic 1
+ // --------------------------------------------------
+ `timescale 1ns/1ps
+ module box_250mhz_address_map #(
+@@ -52,7 +56,7 @@ module box_250mhz_address_map #(
+   output [31:0] s_axil_rdata,
+   output  [1:0] s_axil_rresp,
+   input         s_axil_rready,
+-  
++
+   output    [NUM_INTF*2-1:0] m_axil_p2p_awvalid,
+   output [32*NUM_INTF*2-1:0] m_axil_p2p_awaddr,
+   input     [NUM_INTF*2-1:0] m_axil_p2p_awready,
+@@ -70,6 +74,23 @@ module box_250mhz_address_map #(
+   input   [2*NUM_INTF*2-1:0] m_axil_p2p_rresp,
+   output    [NUM_INTF*2-1:0] m_axil_p2p_rready,
+ 
++  output    [NUM_INTF-1:0] m_axil_user_awvalid,
++  output [32*NUM_INTF-1:0] m_axil_user_awaddr,
++  input     [NUM_INTF-1:0] m_axil_user_awready,
++  output    [NUM_INTF-1:0] m_axil_user_wvalid,
++  output [32*NUM_INTF-1:0] m_axil_user_wdata,
++  input     [NUM_INTF-1:0] m_axil_user_wready,
++  input     [NUM_INTF-1:0] m_axil_user_bvalid,
++  input   [2*NUM_INTF-1:0] m_axil_user_bresp,
++  output    [NUM_INTF-1:0] m_axil_user_bready,
++  output    [NUM_INTF-1:0] m_axil_user_arvalid,
++  output [32*NUM_INTF-1:0] m_axil_user_araddr,
++  input     [NUM_INTF-1:0] m_axil_user_arready,
++  input     [NUM_INTF-1:0] m_axil_user_rvalid,
++  input  [32*NUM_INTF-1:0] m_axil_user_rdata,
++  input   [2*NUM_INTF-1:0] m_axil_user_rresp,
++  output    [NUM_INTF-1:0] m_axil_user_rready,
++
+   output        m_axil_dummy_awvalid,
+   output [31:0] m_axil_dummy_awaddr,
+   input         m_axil_dummy_awready,
+@@ -91,14 +112,17 @@ module box_250mhz_address_map #(
+   input         aresetn
+ );
+ 
+-  localparam C_NUM_SLAVES  = NUM_INTF*2 + 1;
++  localparam C_NUM_SLAVES  = NUM_INTF*3 + 1;
+ 
+   localparam C_P2P_INDEX   = 0;
+   localparam C_DUMMY_INDEX = NUM_INTF*2;
++  localparam C_USER_INDEX  = NUM_INTF*2 + 1;
+ 
+   localparam C_P2P_BASE_ADDR = 32'h0;
+   localparam C_SIZE = 32'h80;
+   localparam C_DUMMY_BASE_ADDR = 32'h1000;
++  localparam C_USER_BASE_ADDR  = 32'h2000;
++  localparam C_USER_SIZE       = 32'h1000;
+ 
+   wire  [(1*C_NUM_SLAVES)-1:0] axil_awvalid;
+   wire [(32*C_NUM_SLAVES)-1:0] axil_awaddr;
+@@ -123,6 +147,11 @@ module box_250mhz_address_map #(
+     assign m_axil_p2p_araddr[32*i +: 32] = axil_araddr[32*i +: 32] - C_SIZE*i - C_P2P_BASE_ADDR;
+   end
+ 
++  for (genvar j = 0; j < NUM_INTF; j=j+1) begin
++    assign m_axil_user_awaddr[32*j +: 32] = axil_awaddr[32*(j + C_USER_INDEX) +: 32] - C_USER_SIZE*j - C_USER_BASE_ADDR;
++    assign m_axil_user_araddr[32*j +: 32] = axil_araddr[32*(j + C_USER_INDEX) +: 32] - C_USER_SIZE*j - C_USER_BASE_ADDR;
++  end
++
+   assign m_axil_p2p_awvalid                            = axil_awvalid[C_P2P_INDEX +: NUM_INTF*2];
+   assign axil_awready[C_P2P_INDEX +: NUM_INTF*2]       = m_axil_p2p_awready;
+   assign m_axil_p2p_wvalid                             = axil_wvalid[C_P2P_INDEX +: NUM_INTF*2];
+@@ -155,6 +184,21 @@ module box_250mhz_address_map #(
+   assign axil_rresp[C_DUMMY_INDEX* 2 +: 2]  = m_axil_dummy_rresp;
+   assign m_axil_dummy_rready                = axil_rready[C_DUMMY_INDEX];
+ 
++  assign m_axil_user_awvalid                            = axil_awvalid[C_USER_INDEX +: NUM_INTF];
++  assign axil_awready[C_USER_INDEX +: NUM_INTF]         = m_axil_user_awready;
++  assign m_axil_user_wvalid                             = axil_wvalid[C_USER_INDEX +: NUM_INTF];
++  assign m_axil_user_wdata                              = axil_wdata[32*C_USER_INDEX +: 32*NUM_INTF];
++  assign axil_wready[C_USER_INDEX +: NUM_INTF]          = m_axil_user_wready;
++  assign axil_bvalid[C_USER_INDEX +: NUM_INTF]          = m_axil_user_bvalid;
++  assign axil_bresp[2*C_USER_INDEX +: 2*NUM_INTF]       = m_axil_user_bresp;
++  assign m_axil_user_bready                             = axil_bready[C_USER_INDEX +: NUM_INTF];
++  assign m_axil_user_arvalid                            = axil_arvalid[C_USER_INDEX +: NUM_INTF];
++  assign axil_arready[C_USER_INDEX +: NUM_INTF]         = m_axil_user_arready;
++  assign axil_rvalid[C_USER_INDEX +: NUM_INTF]          = m_axil_user_rvalid;
++  assign axil_rdata[32*C_USER_INDEX +: 32*NUM_INTF]     = m_axil_user_rdata;
++  assign axil_rresp[2*C_USER_INDEX +: 2*NUM_INTF]       = m_axil_user_rresp;
++  assign m_axil_user_rready                             = axil_rready[C_USER_INDEX +: NUM_INTF];
++
+   box_250mhz_axi_crossbar xbar_inst (
+     .s_axi_awaddr  (s_axil_awaddr),
+     .s_axi_awprot  (0),
+diff --git a/plugin/p2p/box_250mhz/box_250mhz_address_map_inst.vh b/plugin/p2p/box_250mhz/box_250mhz_address_map_inst.vh
+index 5583fc8..20313b6 100644
+--- a/plugin/p2p/box_250mhz/box_250mhz_address_map_inst.vh
++++ b/plugin/p2p/box_250mhz/box_250mhz_address_map_inst.vh
+@@ -32,6 +32,23 @@ wire [32*NUM_CMAC_PORT*2-1:0] axil_p2p_rdata;
+ wire  [2*NUM_CMAC_PORT*2-1:0] axil_p2p_rresp;
+ wire    [NUM_CMAC_PORT*2-1:0] axil_p2p_rready;
+ 
++wire    [NUM_PHYS_FUNC-1:0] axil_plugin_awvalid;
++wire [32*NUM_PHYS_FUNC-1:0] axil_plugin_awaddr;
++wire    [NUM_PHYS_FUNC-1:0] axil_plugin_awready;
++wire    [NUM_PHYS_FUNC-1:0] axil_plugin_wvalid;
++wire [32*NUM_PHYS_FUNC-1:0] axil_plugin_wdata;
++wire    [NUM_PHYS_FUNC-1:0] axil_plugin_wready;
++wire    [NUM_PHYS_FUNC-1:0] axil_plugin_bvalid;
++wire  [2*NUM_PHYS_FUNC-1:0] axil_plugin_bresp;
++wire    [NUM_PHYS_FUNC-1:0] axil_plugin_bready;
++wire    [NUM_PHYS_FUNC-1:0] axil_plugin_arvalid;
++wire [32*NUM_PHYS_FUNC-1:0] axil_plugin_araddr;
++wire    [NUM_PHYS_FUNC-1:0] axil_plugin_arready;
++wire    [NUM_PHYS_FUNC-1:0] axil_plugin_rvalid;
++wire [32*NUM_PHYS_FUNC-1:0] axil_plugin_rdata;
++wire  [2*NUM_PHYS_FUNC-1:0] axil_plugin_rresp;
++wire    [NUM_PHYS_FUNC-1:0] axil_plugin_rready;
++
+ wire        axil_dummy_awvalid;
+ wire [31:0] axil_dummy_awaddr;
+ wire        axil_dummy_awready;
+@@ -86,6 +103,23 @@ box_250mhz_address_map #(
+   .m_axil_p2p_rresp     (axil_p2p_rresp),
+   .m_axil_p2p_rready    (axil_p2p_rready),
+ 
++  .m_axil_user_awvalid  (axil_plugin_awvalid),
++  .m_axil_user_awaddr   (axil_plugin_awaddr),
++  .m_axil_user_awready  (axil_plugin_awready),
++  .m_axil_user_wvalid   (axil_plugin_wvalid),
++  .m_axil_user_wdata    (axil_plugin_wdata),
++  .m_axil_user_wready   (axil_plugin_wready),
++  .m_axil_user_bvalid   (axil_plugin_bvalid),
++  .m_axil_user_bresp    (axil_plugin_bresp),
++  .m_axil_user_bready   (axil_plugin_bready),
++  .m_axil_user_arvalid  (axil_plugin_arvalid),
++  .m_axil_user_araddr   (axil_plugin_araddr),
++  .m_axil_user_arready  (axil_plugin_arready),
++  .m_axil_user_rvalid   (axil_plugin_rvalid),
++  .m_axil_user_rdata    (axil_plugin_rdata),
++  .m_axil_user_rresp    (axil_plugin_rresp),
++  .m_axil_user_rready   (axil_plugin_rready),
++
+   .m_axil_dummy_awvalid (axil_dummy_awvalid),
+   .m_axil_dummy_awaddr  (axil_dummy_awaddr),
+   .m_axil_dummy_awready (axil_dummy_awready),
+diff --git a/plugin/p2p/box_250mhz/box_250mhz_axi_crossbar.tcl b/plugin/p2p/box_250mhz/box_250mhz_axi_crossbar.tcl
+index 1b2219d..d2ca24f 100644
+--- a/plugin/p2p/box_250mhz/box_250mhz_axi_crossbar.tcl
++++ b/plugin/p2p/box_250mhz/box_250mhz_axi_crossbar.tcl
+@@ -19,20 +19,27 @@ set axi_crossbar box_250mhz_axi_crossbar
+ create_ip -name axi_crossbar -vendor xilinx.com -library ip -module_name $axi_crossbar
+ set_property -dict { 
+     CONFIG.PROTOCOL {AXI4LITE}
++    CONFIG.M01_A00_BASE_ADDR {0x0000000000000000}
+     CONFIG.M01_A00_BASE_ADDR {0x0000000000000080}
+     CONFIG.M00_A00_ADDR_WIDTH {7}
+     CONFIG.M01_A00_ADDR_WIDTH {7}
+ } [get_ips $axi_crossbar]
+-set_property CONFIG.NUM_MI [expr { 2*$num_phys_func + 1}] [get_ips $axi_crossbar]
++set_property CONFIG.NUM_MI [expr { 3*$num_phys_func + 1}] [get_ips $axi_crossbar]
+ 
+ if {$num_phys_func == 2} {
+     set_property CONFIG.M02_A00_ADDR_WIDTH {7} [get_ips $axi_crossbar]
+     set_property CONFIG.M03_A00_ADDR_WIDTH {7} [get_ips $axi_crossbar]
+     set_property CONFIG.M04_A00_ADDR_WIDTH {12} [get_ips $axi_crossbar]
++    set_property CONFIG.M05_A00_ADDR_WIDTH {12} [get_ips $axi_crossbar]
++    set_property CONFIG.M06_A00_ADDR_WIDTH {12} [get_ips $axi_crossbar]
+     set_property CONFIG.M02_A00_BASE_ADDR {0x0000000000000100} [get_ips $axi_crossbar]
+     set_property CONFIG.M03_A00_BASE_ADDR {0x0000000000000180} [get_ips $axi_crossbar]
+     set_property CONFIG.M04_A00_BASE_ADDR {0x0000000000001000} [get_ips $axi_crossbar]
++    set_property CONFIG.M05_A00_BASE_ADDR {0x0000000000002000} [get_ips $axi_crossbar]
++    set_property CONFIG.M06_A00_BASE_ADDR {0x0000000000003000} [get_ips $axi_crossbar]
+ } else {
+     set_property CONFIG.M02_A00_ADDR_WIDTH {12} [get_ips $axi_crossbar]
++    set_property CONFIG.M03_A00_ADDR_WIDTH {12} [get_ips $axi_crossbar]
+     set_property CONFIG.M02_A00_BASE_ADDR {0x0000000000001000} [get_ips $axi_crossbar]
++    set_property CONFIG.M03_A00_BASE_ADDR {0x0000000000002000} [get_ips $axi_crossbar]
+ }
+diff --git a/plugin/p2p/box_250mhz/box_250mhz_packet_filter_0.tcl b/plugin/p2p/box_250mhz/box_250mhz_packet_filter_0.tcl
+new file mode 120000
+index 0000000..e071265
+--- /dev/null
++++ b/plugin/p2p/box_250mhz/box_250mhz_packet_filter_0.tcl
+@@ -0,0 +1 @@
++../../../../hardware/src/hdl/packet_filter_0.tcl
+\ No newline at end of file
+diff --git a/plugin/p2p/box_250mhz/box_250mhz_packet_filter_1.tcl b/plugin/p2p/box_250mhz/box_250mhz_packet_filter_1.tcl
+new file mode 120000
+index 0000000..9763677
+--- /dev/null
++++ b/plugin/p2p/box_250mhz/box_250mhz_packet_filter_1.tcl
+@@ -0,0 +1 @@
++../../../../hardware/src/hdl/packet_filter_1.tcl
+\ No newline at end of file
+diff --git a/plugin/p2p/box_250mhz/box_250mhz_packet_filter_wrapper.sv b/plugin/p2p/box_250mhz/box_250mhz_packet_filter_wrapper.sv
+new file mode 120000
+index 0000000..3e7edfa
+--- /dev/null
++++ b/plugin/p2p/box_250mhz/box_250mhz_packet_filter_wrapper.sv
+@@ -0,0 +1 @@
++../../../../hardware/src/hdl/packet_filter_wrapper.sv
+\ No newline at end of file
 diff --git a/plugin/p2p/box_250mhz/user_plugin_250mhz_inst.vh b/plugin/p2p/box_250mhz/user_plugin_250mhz_inst.vh
-index e9c0239..c68ec35 100644
+index 6516c56..c68ec35 100644
 --- a/plugin/p2p/box_250mhz/user_plugin_250mhz_inst.vh
 +++ b/plugin/p2p/box_250mhz/user_plugin_250mhz_inst.vh
 @@ -15,6 +15,7 @@
@@ -10,3 +222,145 @@ index e9c0239..c68ec35 100644
  initial begin
    if (USE_PHYS_FUNC == 0) begin
      $fatal("No implementation for USE_PHYS_FUNC = %d", 0);
+@@ -25,12 +26,109 @@ initial begin
+   end
+ end
+ 
+-localparam C_NUM_USER_BLOCK = 1;
++localparam C_NUM_USER_BLOCK = NUM_PHYS_FUNC + 1;
+ 
+ // Make sure for all the unused reset pair, corresponding bits in
+ // "mod_rst_done" are tied to 0
+ assign mod_rst_done[15:C_NUM_USER_BLOCK] = {(16-C_NUM_USER_BLOCK){1'b1}};
+ 
++wire     [NUM_PHYS_FUNC-1:0] axis_plugin_rx_250mhz_tvalid;
++wire [512*NUM_PHYS_FUNC-1:0] axis_plugin_rx_250mhz_tdata;
++wire  [64*NUM_PHYS_FUNC-1:0] axis_plugin_rx_250mhz_tkeep;
++wire     [NUM_PHYS_FUNC-1:0] axis_plugin_rx_250mhz_tlast;
++wire  [16*NUM_PHYS_FUNC-1:0] axis_plugin_rx_250mhz_tuser_size;
++wire  [16*NUM_PHYS_FUNC-1:0] axis_plugin_rx_250mhz_tuser_src;
++wire  [16*NUM_PHYS_FUNC-1:0] axis_plugin_rx_250mhz_tuser_dst;
++wire     [NUM_PHYS_FUNC-1:0] axis_plugin_rx_250mhz_tready;
++
++wire     [NUM_PHYS_FUNC-1:0] axis_plugin_tx_250mhz_tvalid;
++wire [512*NUM_PHYS_FUNC-1:0] axis_plugin_tx_250mhz_tdata;
++wire  [64*NUM_PHYS_FUNC-1:0] axis_plugin_tx_250mhz_tkeep;
++wire     [NUM_PHYS_FUNC-1:0] axis_plugin_tx_250mhz_tlast;
++wire  [16*NUM_PHYS_FUNC-1:0] axis_plugin_tx_250mhz_tuser_size;
++wire  [16*NUM_PHYS_FUNC-1:0] axis_plugin_tx_250mhz_tuser_src;
++wire  [16*NUM_PHYS_FUNC-1:0] axis_plugin_tx_250mhz_tuser_dst;
++wire     [NUM_PHYS_FUNC-1:0] axis_plugin_tx_250mhz_tready;
++
++generate for (genvar i = 0; i < NUM_PHYS_FUNC; i = i + 1) begin: plugin_250mhz
++  wire [47:0] s_axis_qdma_h2c_tuser;
++  wire [47:0] m_axis_qdma_c2h_tuser;
++  wire [47:0] axis_plugin_rx_250mhz_tuser;
++  wire [47:0] axis_plugin_tx_250mhz_tuser;
++
++  assign m_axis_qdma_c2h_tuser_size[`getvec(16, i)]       = m_axis_qdma_c2h_tuser[`getvec(16, 0)];
++  assign m_axis_qdma_c2h_tuser_src[`getvec(16, i)]        = m_axis_qdma_c2h_tuser[`getvec(16, 1)];
++  assign m_axis_qdma_c2h_tuser_dst[`getvec(16, i)]        = m_axis_qdma_c2h_tuser[`getvec(16, 2)];
++
++  assign s_axis_qdma_h2c_tuser[`getvec(16, 0)]            = s_axis_qdma_h2c_tuser_size[`getvec(16, i)];
++  assign s_axis_qdma_h2c_tuser[`getvec(16, 1)]            = s_axis_qdma_h2c_tuser_src[`getvec(16, i)];
++  assign s_axis_qdma_h2c_tuser[`getvec(16, 2)]            = s_axis_qdma_h2c_tuser_dst[`getvec(16, i)];
++
++  assign axis_plugin_rx_250mhz_tuser[`getvec(16, 0)]      = axis_plugin_rx_250mhz_tuser_size[`getvec(16, i)];
++  assign axis_plugin_rx_250mhz_tuser[`getvec(16, 1)]      = axis_plugin_rx_250mhz_tuser_src[`getvec(16, i)];
++  assign axis_plugin_rx_250mhz_tuser[`getvec(16, 2)]      = axis_plugin_rx_250mhz_tuser_dst[`getvec(16, i)];
++
++  assign axis_plugin_tx_250mhz_tuser_size[`getvec(16, i)] = axis_plugin_tx_250mhz_tuser[`getvec(16, 0)];
++  assign axis_plugin_tx_250mhz_tuser_src[`getvec(16, i)]  = axis_plugin_tx_250mhz_tuser[`getvec(16, 1)];
++  assign axis_plugin_tx_250mhz_tuser_dst[`getvec(16, i)]  = axis_plugin_tx_250mhz_tuser[`getvec(16, 2)];
++
++  packet_filter_wrapper #(
++      .FUNC_ID (i)
++  ) box_250mhz_plugin_inst (
++    .s_axil_awvalid           (axil_plugin_awvalid[i]),
++    .s_axil_awaddr            (axil_plugin_awaddr[`getvec(32, i)]),
++    .s_axil_awready           (axil_plugin_awready[i]),
++    .s_axil_wvalid            (axil_plugin_wvalid[i]),
++    .s_axil_wdata             (axil_plugin_wdata[`getvec(32, i)]),
++    .s_axil_wready            (axil_plugin_wready[i]),
++    .s_axil_bvalid            (axil_plugin_bvalid[i]),
++    .s_axil_bresp             (axil_plugin_bresp[`getvec(2, i)]),
++    .s_axil_bready            (axil_plugin_bready[i]),
++    .s_axil_arvalid           (axil_plugin_arvalid[i]),
++    .s_axil_araddr            (axil_plugin_araddr[`getvec(32, i)]),
++    .s_axil_arready           (axil_plugin_arready[i]),
++    .s_axil_rvalid            (axil_plugin_rvalid[i]),
++    .s_axil_rdata             (axil_plugin_rdata[`getvec(32, i)]),
++    .s_axil_rresp             (axil_plugin_rresp[`getvec(2, i)]),
++    .s_axil_rready            (axil_plugin_rready[i]),
++
++    .s_axis_qdma_h2c_tvalid   (s_axis_qdma_h2c_tvalid[i]),
++    .s_axis_qdma_h2c_tdata    (s_axis_qdma_h2c_tdata[`getvec(512, i)]),
++    .s_axis_qdma_h2c_tkeep    (s_axis_qdma_h2c_tkeep[`getvec(64, i)]),
++    .s_axis_qdma_h2c_tlast    (s_axis_qdma_h2c_tlast[i]),
++    .s_axis_qdma_h2c_tuser    (s_axis_qdma_h2c_tuser),
++    .s_axis_qdma_h2c_tready   (s_axis_qdma_h2c_tready[i]),
++
++    .s_axis_adap_rx_tvalid    (axis_plugin_rx_250mhz_tvalid[i]),
++    .s_axis_adap_rx_tdata     (axis_plugin_rx_250mhz_tdata[`getvec(512, i)]),
++    .s_axis_adap_rx_tkeep     (axis_plugin_rx_250mhz_tkeep[`getvec(64, i)]),
++    .s_axis_adap_rx_tlast     (axis_plugin_rx_250mhz_tlast[i]),
++    .s_axis_adap_rx_tuser     (axis_plugin_rx_250mhz_tuser),
++    .s_axis_adap_rx_tready    (axis_plugin_rx_250mhz_tready[i]),
++
++    .m_axis_adap_tx_tvalid    (axis_plugin_tx_250mhz_tvalid[i]),
++    .m_axis_adap_tx_tdata     (axis_plugin_tx_250mhz_tdata[`getvec(512, i)]),
++    .m_axis_adap_tx_tkeep     (axis_plugin_tx_250mhz_tkeep[`getvec(64, i)]),
++    .m_axis_adap_tx_tlast     (axis_plugin_tx_250mhz_tlast[i]),
++    .m_axis_adap_tx_tuser     (axis_plugin_tx_250mhz_tuser),
++    .m_axis_adap_tx_tready    (axis_plugin_tx_250mhz_tready[i]),
++
++    .m_axis_qdma_c2h_tvalid   (m_axis_qdma_c2h_tvalid[i]),
++    .m_axis_qdma_c2h_tdata    (m_axis_qdma_c2h_tdata[`getvec(512, i)]),
++    .m_axis_qdma_c2h_tkeep    (m_axis_qdma_c2h_tkeep[`getvec(64, i)]),
++    .m_axis_qdma_c2h_tlast    (m_axis_qdma_c2h_tlast[i]),
++    .m_axis_qdma_c2h_tuser    (m_axis_qdma_c2h_tuser),
++    .m_axis_qdma_c2h_tready   (m_axis_qdma_c2h_tready[i]),
++
++    .mod_rstn       (mod_rstn[i]),
++    .mod_rst_done   (mod_rst_done[i]),
++
++    .axil_aclk      (axil_aclk),
++    .axis_aclk      (axis_aclk)
++  );
++end: plugin_250mhz
++endgenerate
++
+ p2p_250mhz #(
+   .NUM_QDMA    (NUM_QDMA),
+   .NUM_INTF    (NUM_PHYS_FUNC)
+diff --git a/plugin/p2p/build_box_250mhz.tcl b/plugin/p2p/build_box_250mhz.tcl
+index e4ed8f0..e12f57d 100644
+--- a/plugin/p2p/build_box_250mhz.tcl
++++ b/plugin/p2p/build_box_250mhz.tcl
+@@ -18,4 +18,11 @@
+ if {$num_qdma > 1} {
+     source box_250mhz/box_250mhz_axis_switch.tcl
+ }
++
++source box_250mhz/box_250mhz_packet_filter_0.tcl
++if {$num_phys_func == 2} {
++    source box_250mhz/box_250mhz_packet_filter_1.tcl
++}
++
+ read_verilog -quiet -sv p2p_250mhz.sv
++read_verilog -quiet -sv box_250mhz/box_250mhz_packet_filter_wrapper.sv
+diff --git a/script/build.tcl b/script/build.tcl
+index 6215589..4ef28dc 100644
+--- a/script/build.tcl
++++ b/script/build.tcl
+@@ -351,6 +351,10 @@ dict for {ip ip_dir} $ip_dict {
+     read_ip -quiet ${ip_dir}/${ip}.xci
+ }
+ 
++set hls_repo_paths "${root_dir}/../hardware"
++set_property ip_repo_paths [list $hls_repo_paths] [current_project]
++update_ip_catalog
++
+ # Read user plugin files
+ set include_dirs [get_property include_dirs [current_fileset]]
+ foreach freq [list 250mhz 322mhz] {
