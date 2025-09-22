@@ -23,9 +23,9 @@ void packet_filter(hls::stream<axis_250_t> &s_axis,
                    ) {
 #pragma HLS INTERFACE axis          port=s_axis
 #pragma HLS INTERFACE axis          port=m_axis
-#pragma HLS INTERFACE s_axilite     port=ipv4_addr bundle=control clock=axil_aclk
-#pragma HLS INTERFACE s_axilite     port=udp_port  bundle=control
-#pragma HLS INTERFACE s_axilite     port=action    bundle=control
+#pragma HLS INTERFACE s_axilite     port=ipv4_addr bundle=cfg clock=axil_aclk
+#pragma HLS INTERFACE s_axilite     port=udp_port  bundle=cfg
+#pragma HLS INTERFACE s_axilite     port=action    bundle=cfg
 #pragma HLS INTERFACE ap_ctrl_none  port=return
 
 #pragma HLS STABLE    variable=ipv4_addr
@@ -49,6 +49,7 @@ void process_packet(hls::stream<axis_250_t> &s_axis,
         return;
     }
 
+    /* Phit: a portion of a packet that fits in the data bus width */
     static int phit_idx = 0;
     static NetworkPacket network;
 
@@ -58,8 +59,12 @@ void process_packet(hls::stream<axis_250_t> &s_axis,
     network.deserialize(incoming_phit.data, phit_idx);
 
     ap_uint<32> table_action = 0;
+    /* On the first phit, we have completely received network headers and
+     * can make a packet filtering decision */
     if (phit_idx == 0 && network.eth_hdr.is_ipv4() && network.ip_hdr.is_udp()) {
-        table_action = hash_table.lookup(network.ip_hdr.src_ip, network.udp_hdr.src_port);
+        /* Packet filtering decision is make based on target network address:
+         * (dest_ip, dest_port) */
+        table_action = hash_table.lookup(network.ip_hdr.dest_ip, network.udp_hdr.dest_port);
     }
 
     if (table_action == 1) { // forward

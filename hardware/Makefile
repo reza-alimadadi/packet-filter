@@ -3,8 +3,9 @@
 VITIS=vitis_hls
 
 ROOT_DIR=$(shell pwd)
-SCRIPT=$(shell find $(ROOT_DIR) -type f -name "*.tcl")
-SOLUTIONS=$(patsubst $(ROOT_DIR)/%.tcl,%,$(SCRIPT))
+SCRIPT_DIR=$(ROOT_DIR)/scripts
+SCRIPT=$(shell find $(SCRIPT_DIR) -type f -name "*.tcl")
+SOLUTIONS=$(patsubst $(SCRIPT_DIR)/%.tcl,%,$(SCRIPT))
 
 CLEAN ?= 0
 BUILD ?= 1
@@ -45,8 +46,8 @@ setup:
 	@ echo 'set synth $(SYNTH)' >> ./settings.tcl
 	@ echo 'set export $(EXPORT)' >> ./settings.tcl
 
-$(SOLUTIONS): % : $(ROOT_DIR)/%.tcl setup
-	$(VITIS) -i -f $<;
+$(SOLUTIONS): % : $(SCRIPT_DIR)/%.tcl setup
+	$(VITIS) -i -f $<
 
 .PHONY: clean
 clean:
