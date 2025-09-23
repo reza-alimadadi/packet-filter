@@ -9,6 +9,10 @@
 #include "deps.h"
 #include "packet_filter.h"
 
+#define PRINT_STAT(str, val) \
+    if (val > 0 && val != static_cast<decltype(val)>(-1)) \
+        log_info(str, val);
+
 PacketFilter::PacketFilter(std::vector<std::string> filter_list) : MMIO(0) {
     set_base_addr(OPENNIC_USER_250_BASE_ADDR + PACKET_FILTER_OFFSET);
 
@@ -43,9 +47,21 @@ void PacketFilter::update_rule(std::string net_addr, RuleAction action) {
     write<uint8_t>(RegisterMap::RULE_ACTION_REG, static_cast<uint8_t>(action));
 }
 
-#define PRINT_STAT(str, val) \
-    if (val > 0 && val != static_cast<decltype(val)>(-1)) \
-        log_info(str, val);
+void PacketFilter::show_stats() {
+    uint64_t pkt_in     = read<uint64_t>(RegisterMap::STATS_PKT_IN_REG);
+    uint64_t phit_in    = read<uint64_t>(RegisterMap::STATS_PHIT_IN_REG);
+    uint64_t pkt_forwd  = read<uint64_t>(RegisterMap::STATS_PKT_FORWD_REG);
+    uint64_t pkt_drop   = read<uint64_t>(RegisterMap::STATS_PKT_DROP_REG);
+
+    if (pkt_in == 0 && pkt_forwd == 0 && pkt_drop == 0) {
+        return;
+    }
+    log_info("Packet Filter Statistics:");
+    PRINT_STAT("  Packets In:        %lu", pkt_in);
+    PRINT_STAT("  Phits In:          %lu", phit_in);
+    PRINT_STAT("  Packets Forwarded: %lu", pkt_forwd);
+    PRINT_STAT("  Packets Dropped:   %lu", pkt_drop);
+}
 
 void PacketAdapter::show_stats() {
     uint64_t tx_packet_sent     = read<uint64_t>(RegisterMap::TX_PACKET_SENT_REG);
@@ -54,6 +70,9 @@ void PacketAdapter::show_stats() {
     uint64_t rx_packet_dropped  = read<uint64_t>(RegisterMap::RX_PACKET_DROPPED_REG);
     uint64_t rx_packet_error    = read<uint64_t>(RegisterMap::RX_PACKET_ERROR_REG);
 
+    if (rx_packet_recv == 0 && tx_packet_sent == 0) {
+        return;
+    }
     log_info("Packet Adapter Statistics:");
     PRINT_STAT("  TX Packets Sent:        %lu", tx_packet_sent);
     PRINT_STAT("  TX Packets Dropped:     %lu", tx_packet_dropped);

@@ -63,6 +63,8 @@ int main(int argc, const char** argv) {
 
     PacketAdapter packet_adapter;
     packet_adapter.show_stats();
+
+    packet_filter.show_stats();
     return 0;
 }
 

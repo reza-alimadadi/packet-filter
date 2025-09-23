@@ -57,9 +57,14 @@ private:
      * hardware/hls/packet_filter/solution1/impl/ip/drivers/packet_filter_v1_0/src/xpacket_filter_hw.h
      */
     enum RegisterMap : uint32_t {
-        IPV4_ADDR_REG      = 0x10, /* 32 bits */
-        UDP_PORT_REG       = 0x18, /* 16 bits */
-        RULE_ACTION_REG    = 0x20, /* 8 bits */
+        IPV4_ADDR_REG       = 0x10, /* 32 bits */
+        UDP_PORT_REG        = 0x18, /* 16 bits */
+        RULE_ACTION_REG     = 0x20, /* 8 bits */
+
+        STATS_PKT_IN_REG    = 0x28, /* 64 bits */
+        STATS_PHIT_IN_REG   = 0x40, /* 64 bits */
+        STATS_PKT_FORWD_REG = 0x58, /* 64 bits */
+        STATS_PKT_DROP_REG  = 0x70, /* 64 bits */
     };
 
 public:
@@ -75,6 +80,7 @@ public:
     ~PacketFilter() {}
 
     void update_rule(std::string net_addr, RuleAction action);
+    void show_stats();
 };
 
 class PacketAdapter : public MMIO {
