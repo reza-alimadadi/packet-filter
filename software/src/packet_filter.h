@@ -3,6 +3,19 @@
 
 class PacketFilter {
 private:
+    static const uint32_t OPENNIC_USER_250_BASE_ADDR = 0x100000;
+    static const uint32_t PACKET_FILTER_OFFSET       = 0x20000;
+
+    /* Register offsets within the Packet Filter HLS core 
+     * Found in the file bellow after synthesis of the core
+     * hardware/hls/packet_filter/solution1/impl/ip/drivers/packet_filter_v1_0/src/xpacket_filter_hw.h
+     */
+    enum RegisterMap : uint32_t {
+        IPV4_ADDR_REG      = 0x10, /* 32 bits */
+        UDP_PORT_REG       = 0x18, /* 16 bits */
+        RULE_ACTION_REG    = 0x20, /* 8 bits */
+    };
+
     class MMIO {
     private:
         uint32_t base_addr_;
@@ -14,13 +27,14 @@ private:
 
     public:
         MMIO() = delete;
-        MMIO(uint32_t port_id);
+        MMIO(uint32_t port_id = 0);
         ~MMIO() {}
         void set_base_addr(uint32_t addr) { base_addr_ = addr; }
 
         /* Support reading/writing integral types up to 64 bits */
         template<typename T, typename std::enable_if<std::is_integral<T>::value, int>::type = 0>
         void write(uint32_t offset, T value) {
+            /* Assert that the size of T is supported (up to 64 bits) */
             static_assert(sizeof(T) <= sizeof(uint64_t), "Unsupported type size");
 
             if constexpr (sizeof(T) <= sizeof(uint32_t)) {
@@ -46,6 +60,27 @@ private:
             }
         }
     };
+
+
+private:
+    MMIO mmio_;
+
+public:
+    enum RuleAction : uint32_t {
+        RULE_ACTION_DROP = 0,
+        RULE_ACTION_FORWARD = 1,
+    };
+
+    PacketFilter() : mmio_(0) {
+        mmio_.set_base_addr(OPENNIC_USER_250_BASE_ADDR + PACKET_FILTER_OFFSET);
+    }
+    PacketFilter(std::vector<std::string> filter_list);
+    ~PacketFilter() {}
+
+    void update_rule(std::string net_addr, RuleAction action);
+
+
+private:
 };
 
 #endif // _PACKET_FILTER_H_

@@ -1,6 +1,6 @@
 
 #include <rte_eal.h>
-#include <rte_ethdev.h>
+/* #include <rte_ethdev.h> */
 #include <rte_pmd_qdma.h>
 
 #include "deps.h"
@@ -97,7 +97,7 @@ int DPDK::dpdk_rx_loop(void* arg) {
                       i, tinfo->thread_id, rte_pktmbuf_pkt_len(bufs[i]));
 
             /* Process the packet using the registered callback */
-            int ret = tinfo->rx_callback(bufs[i]);
+            int ret = tinfo->rx_callback(tinfo->thread_id, bufs[i]);
             if (ret < 0) {
                 log_warn("Packet processing failed on thread_id %u, packet %u",
                          tinfo->thread_id, i);

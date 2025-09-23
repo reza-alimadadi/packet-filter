@@ -1,6 +1,8 @@
 #ifndef _DPDK_H_
 #define _DPDK_H_
 
+#include <rte_ethdev.h>
+
 class DPDK {
 private:
     static const size_t DPDK_MAX_MBUFS          = 8192;
@@ -10,7 +12,7 @@ private:
     static const size_t DPDK_WRITEBACK_THRESH   = 64;
     static const size_t DPDK_PREFETCH_NUM       = 4;
 
-    using rx_callback_t = std::function<int(rte_mbuf*)>;
+    using rx_callback_t = std::function<int(uint16_t, rte_mbuf* mbuf)>;
     struct thread_info;
 
     uint16_t port_num_;
