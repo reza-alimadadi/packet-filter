@@ -12,7 +12,6 @@ find_package(PkgConfig REQUIRED)
 find_package(Threads REQUIRED)
 
 pkg_check_modules(DPDK REQUIRED IMPORTED_TARGET libdpdk)
-pkg_check_modules(YAMLCPP REQUIRED IMPORTED_TARGET yaml-cpp)
 
 # QDMA library is not in the the .pc file for pkg-config, so we need to find it manually
 find_library(QDMA_LIBRARY
@@ -56,7 +55,7 @@ foreach(EXE_SOURCE ${EXE_SOURCES})
     get_filename_component(EXE_NAME ${EXE_SOURCE} NAME_WE)
     add_executable(${EXE_NAME} ${EXE_SOURCE})
     target_link_libraries(${EXE_NAME} "packet_filter"
-                          PkgConfig::DPDK PkgConfig::YAMLCPP
-                          ${QDMA_LIBRARY} Threads::Threads)
+                          PkgConfig::DPDK ${QDMA_LIBRARY}
+                          Threads::Threads)
 endforeach()
 
