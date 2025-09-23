@@ -5,13 +5,23 @@ LOG_DIR=$SCRIPT_DIR/../logs
 
 mkdir -p $LOG_DIR
 
-exec > $LOG_DIR/configure_fpga.log 2>&1
+# exec > $LOG_DIR/configure_fpga.log 2>&1
 
 DEVICE_BDF0=`lspci | grep Xilinx | grep 903f | cut -d ' ' -f 1`
 DEVICE_BDF1=`lspci | grep Xilinx | grep 913f | cut -d ' ' -f 1`
 DEVICE_PATH=$(find /sys/devices/ -type d -name "*$DEVICE_BDF0*")
 
+# Check if pcimem is compiled
+if [ ! -f "$PCIMEM_DIR/pcimem" ]; then
+    echo "pcimem not found! Please compile it first."
+    exit 1
+fi
+
 PCIMEM_CMD="$PCIMEM_DIR/pcimem $DEVICE_PATH/resource2"
+
+# Unbind devices from vfio-pci driver if already bound since pcimem cannot access them
+# while they are bound to vfio-pci. We will rebind them later after configuration.
+sudo $SCRIPT_DIR/dpdk-devbind.py --unbind $DEVICE_BDF1 $DEVICE_BDF2
 
 # By default, we configure only one queue
 NUM_QUEUES=1
@@ -41,3 +51,7 @@ sudo $PCIMEM 0x800c w 0x1
 # Write to enable CMAC1
 sudo $PCIMEM 0xc014 w 0x1;
 sudo $PCIMEM 0xc00c w 0x1;
+
+# Bind devices back to vfio-pci driver for DPDK usage
+sudo $SCRIPT_DIR/dpdk-devbind.py -b vfio-pci $DEVICE_BDF1 $DEVICE_BDF2
+
