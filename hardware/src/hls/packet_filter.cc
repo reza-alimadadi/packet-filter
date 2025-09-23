@@ -75,7 +75,7 @@ void process_packet(hls::stream<axis_250_t> &s_axis,
     ap_uint<32> table_action = 0;
     /* On the first phit, we have completely received network headers and
      * can make a packet filtering decision */
-    if (phit_idx == 0 && network.eth_hdr.is_ipv4() && network.ip_hdr.is_udp()) {
+    if (network.eth_hdr.is_ipv4() && network.ip_hdr.is_udp()) {
         /* Packet filtering decision is make based on target network address:
          * (dest_ip, dest_port) */
         table_action = hash_table.lookup(network.ip_hdr.dest_ip, network.udp_hdr.dest_port);

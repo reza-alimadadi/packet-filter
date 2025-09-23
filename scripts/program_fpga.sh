@@ -66,6 +66,8 @@ else
     echo 1 | sudo tee "/sys/bus/pci/rescan" > /dev/null
 fi
 
+sleep 1
+
 DEVICE_BDF0=`lspci | grep Xilinx | grep 903f | cut -d ' ' -f 1`
 DEVICE_BDF1=`lspci | grep Xilinx | grep 913f | cut -d ' ' -f 1`
 if [[ $DEVICE_BDF0 == "" || $DEVICE_BDF1 == "" ]]; then
