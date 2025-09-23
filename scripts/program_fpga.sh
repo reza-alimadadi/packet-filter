@@ -55,14 +55,7 @@ fi
 echo "Programming FPGA with bitstream..."
 vivado -mode batch -source $SCRIPT_DIR/download_bitstream.tcl -tclargs $HOSTNAME $BITSTREAM_FILE
 
-# Check if this the correct pcie device is present
-TEST_BDF=`lspci | grep Xilinx | grep 903f | cut -d ' ' -f 1`
-if [ "$TEST_BDF" == "" ]; then
-    echo "You need to reboot the host for the PCIe device to appear coorrectly!"
-    exit 1
-fi
-
-[ "$DEVICE_BDF0" != "" && "$DEVICE_BDF1" != "" ]; thenecho "Doing PCI-e link re-scan..."
+echo "PCIe link rescan..."
 if [ -e "$device0_path" ]; then
     echo 1 | sudo tee "/sys/bus/pci/devices/${bridge_bdf}/${device_bdf0}/remove" >/dev/null
     if [ -e "$device1_path" ]; then
@@ -73,4 +66,9 @@ else
     echo 1 | sudo tee "/sys/bus/pci/rescan" > /dev/null
 fi
 
-echo "You can use FPGA without rebooting now."
+DEVICE_BDF0=`lspci | grep Xilinx | grep 903f | cut -d ' ' -f 1`
+DEVICE_BDF1=`lspci | grep Xilinx | grep 913f | cut -d ' ' -f 1`
+if [[ $DEVICE_BDF0 == "" || $DEVICE_BDF1 == "" ]]; then
+    echo "You need to reboot the system for PCIe link to come up."
+    exit 1
+fi
