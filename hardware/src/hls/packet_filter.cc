@@ -7,45 +7,59 @@
 #include "hash.h"
 
 using axis_250_t = ap_axiu<512, 48, 0, 0>;
+struct statistics_t {
+    uint64_t pkt_in;
+    uint64_t phit_in;
+    uint64_t pkt_forward;
+    uint64_t pkt_drop;
+};
 
 void process_packet(hls::stream<axis_250_t> &s_axis,
                     hls::stream<axis_250_t> &m_axis,
                     ap_uint<32> ipv4_addr,
                     ap_uint<16> udp_port,
-                    ap_uint<8>  action);
+                    ap_uint<8>  action,
+                    statistics_t &stats);
 
 void packet_filter(hls::stream<axis_250_t> &s_axis,
                    hls::stream<axis_250_t> &m_axis,
 
                    ap_uint<32> ipv4_addr,
                    ap_uint<16> udp_port,
-                   ap_uint<8>  action // 0: drop, 1: forward
+                   ap_uint<8>  action, // 0: drop, 1: forward
+                   statistics_t &stats
                    ) {
 #pragma HLS INTERFACE axis          port=s_axis
 #pragma HLS INTERFACE axis          port=m_axis
 #pragma HLS INTERFACE s_axilite     port=ipv4_addr bundle=cfg clock=axil_aclk
 #pragma HLS INTERFACE s_axilite     port=udp_port  bundle=cfg
 #pragma HLS INTERFACE s_axilite     port=action    bundle=cfg
+#pragma HLS INTERFACE s_axilite     port=stats     bundle=cfg
 #pragma HLS INTERFACE ap_ctrl_none  port=return
 
+#pragma HLS DISAGGREGATE variable=stats
 #pragma HLS STABLE    variable=ipv4_addr
 #pragma HLS STABLE    variable=udp_port
 #pragma HLS STABLE    variable=action
+#pragma HLS STABLE    variable=stats
 
-    process_packet(s_axis, m_axis, ipv4_addr, udp_port, action);
+    process_packet(s_axis, m_axis, ipv4_addr, udp_port, action, stats);
 }
 
 void process_packet(hls::stream<axis_250_t> &s_axis,
                     hls::stream<axis_250_t> &m_axis,
                     ap_uint<32> ipv4_addr,
                     ap_uint<16> udp_port,
-                    ap_uint<8>  action) {
+                    ap_uint<8>  action,
+                    statistics_t &stats) {
 #pragma HLS pipeline II=1 style=frp
 
     static ToeplitzHash hash_table;
+    static statistics_t local_stats = {0, 0, 0};
 
     if (s_axis.empty()) {
         hash_table.insert(ipv4_addr, udp_port, action);
+        stats = local_stats;
         return;
     }
 
@@ -79,4 +93,13 @@ void process_packet(hls::stream<axis_250_t> &s_axis,
     }
 
     phit_idx = incoming_phit.last ? 0 : phit_idx + 1;
+    if (incoming_phit.last) {
+        local_stats.pkt_in++;
+        local_stats.phit_in += (phit_idx + 1);
+        if (table_action == 1) {
+            local_stats.pkt_forward++;
+        } else {
+            local_stats.pkt_drop++;
+        }
+    }
 }

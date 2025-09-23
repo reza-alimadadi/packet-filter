@@ -71,10 +71,10 @@ void IPv4Header::deserialize(const ap_uint<512> &data, const int phit_idx) {
 void UDPHeader::serialize(ap_uint<512> &data, const int phit_idx) const {
     switch (phit_idx) {
         case 0:
-            data.range(279, 272) = src_port;
-            data.range(295, 288) = dest_port;
-            data.range(311, 296) = length;
-            data.range(327, 312) = checksum;
+            data.range(287, 272) = src_port;
+            data.range(303, 288) = dest_port;
+            data.range(319, 304) = length;
+            data.range(335, 320) = checksum;
             break;
         default:
             break;
@@ -84,10 +84,10 @@ void UDPHeader::serialize(ap_uint<512> &data, const int phit_idx) const {
 void UDPHeader::deserialize(const ap_uint<512> &data, const int phit_idx) {
     switch (phit_idx) {
         case 0:
-            src_port  = data.range(279, 272);
-            dest_port = data.range(295, 288);
-            length    = data.range(311, 296);
-            checksum  = data.range(327, 312);
+            src_port  = data.range(287, 272);
+            dest_port = data.range(303, 288);
+            length    = data.range(319, 304);
+            checksum  = data.range(335, 320);
             break;
         default:
             break;
