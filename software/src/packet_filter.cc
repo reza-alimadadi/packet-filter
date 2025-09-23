@@ -9,8 +9,8 @@
 #include "deps.h"
 #include "packet_filter.h"
 
-PacketFilter::PacketFilter(std::vector<std::string> filter_list) : mmio_(0) {
-    mmio_.set_base_addr(OPENNIC_USER_250_BASE_ADDR + PACKET_FILTER_OFFSET);
+PacketFilter::PacketFilter(std::vector<std::string> filter_list) : MMIO(0) {
+    set_base_addr(OPENNIC_USER_250_BASE_ADDR + PACKET_FILTER_OFFSET);
 
     for (const auto& filter : filter_list) {
         update_rule(filter, RULE_ACTION_FORWARD);
@@ -38,9 +38,28 @@ void PacketFilter::update_rule(std::string net_addr, RuleAction action) {
     log_assert(port != 0, "Invalid port: %s", port_str.c_str());
 
     /* Write to MMIO registers */
-    mmio_.write<uint32_t>(RegisterMap::IPV4_ADDR_REG, ip);
-    mmio_.write<uint16_t>(RegisterMap::UDP_PORT_REG, port);
-    mmio_.write<uint8_t>(RegisterMap::RULE_ACTION_REG, static_cast<uint8_t>(action));
+    write<uint32_t>(RegisterMap::IPV4_ADDR_REG, ip);
+    write<uint16_t>(RegisterMap::UDP_PORT_REG, port);
+    write<uint8_t>(RegisterMap::RULE_ACTION_REG, static_cast<uint8_t>(action));
+}
+
+#define PRINT_STAT(str, val) \
+    if (val > 0 && val != static_cast<decltype(val)>(-1)) \
+        log_info(str, val);
+
+void PacketAdapter::show_stats() {
+    uint64_t tx_packet_sent     = read<uint64_t>(RegisterMap::TX_PACKET_SENT_REG);
+    uint64_t tx_packet_dropped  = read<uint64_t>(RegisterMap::TX_PACKET_DROPPED_REG);
+    uint64_t rx_packet_recv     = read<uint64_t>(RegisterMap::RX_PACKET_RECV_REG);
+    uint64_t rx_packet_dropped  = read<uint64_t>(RegisterMap::RX_PACKET_DROPPED_REG);
+    uint64_t rx_packet_error    = read<uint64_t>(RegisterMap::RX_PACKET_ERROR_REG);
+
+    log_info("Packet Adapter Statistics:");
+    PRINT_STAT("  TX Packets Sent:        %lu", tx_packet_sent);
+    PRINT_STAT("  TX Packets Dropped:     %lu", tx_packet_dropped);
+    PRINT_STAT("  RX Packets Received:    %lu", rx_packet_recv);
+    PRINT_STAT("  RX Packets Dropped:     %lu", rx_packet_dropped);
+    PRINT_STAT("  RX Packets Error:       %lu", rx_packet_error);
 }
 
 /* DPDK does not provide APIs to read/write QDMA registers, but QDMA PMD
@@ -81,3 +100,5 @@ uint32_t PacketFilter::MMIO::mmio_reg_read(uint32_t offset) {
     log_assert(base_addr_ != 0, "Base address is not set");
     return rte_pmd_qdma_compat_pci_read_reg(port_id_, bar_id_, base_addr_ + offset);
 }
+
+

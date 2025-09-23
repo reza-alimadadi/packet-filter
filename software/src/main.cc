@@ -1,3 +1,4 @@
+#include <signal.h>
 #include <unistd.h>
 #include <sstream>
 
@@ -5,21 +6,50 @@
 #include "dpdk.h"
 #include "packet_filter.h"
 
-struct arguments {
+struct Arguments {
     const char* dpdk_config = nullptr;
     uint16_t num_threads = 1;
     uint32_t duration = 10;
 
     /* Filter format: <ipv4_addr>:<port>,... */
     std::vector<std::string> filter_list;
+
+    void parse_args(int argc, const char** argv);
 };
 
-void parse_args(int argc, const char** argv, arguments& args);
+class Timeout {
+private:
+    std::mutex mutex;
+    std::condition_variable cv;
+    bool terminate = false;
+
+public:
+    void wait_for(uint64_t duration) {
+        std::unique_lock<std::mutex> lock(mutex);
+        cv.wait_for(lock, std::chrono::seconds(duration), [this] { return terminate; });
+    }
+
+    void force_stop() {
+        std::lock_guard<std::mutex> lock(mutex);
+        terminate = true;
+        cv.notify_all();
+    }
+};
+
 int network_packet_handler(uint16_t thread_id, rte_mbuf* mbuf);
 
+Timeout timeout;
+void signal_handler(int signum) {
+    log_info("Received signal %d, terminating...", signum);
+    timeout.force_stop();
+}
+
 int main(int argc, const char** argv) {
-    arguments args;
-    parse_args(argc, argv, args);
+    signal(SIGINT, signal_handler);
+    signal(SIGTERM, signal_handler);
+
+    Arguments args;
+    args.parse_args(argc, argv);
 
     DPDK dpdk(args.dpdk_config, args.num_threads);
     for (uint16_t i = 0; i < args.num_threads; i++) {
@@ -28,24 +58,28 @@ int main(int argc, const char** argv) {
     PacketFilter packet_filter(args.filter_list);
 
     log_info("Running for %u seconds...", args.duration);
-    std::this_thread::sleep_for(std::chrono::seconds(args.duration));
+    timeout.wait_for(args.duration);
+    log_info("Time's up, shutting down...");
+
+    PacketAdapter packet_adapter;
+    packet_adapter.show_stats();
     return 0;
 }
 
-void parse_args(int argc, const char** argv, arguments& args) {
+void Arguments::parse_args(int argc, const char** argv) {
     int c;
     while ((c = getopt(argc, const_cast<char**>(argv), "c:t:d:f:")) != -1) {
         switch (c) {
             case 'c':
-                args.dpdk_config = optarg;
+                this->dpdk_config = optarg;
                 break;
 
             case 't':
-                args.num_threads = static_cast<uint16_t>(std::stoi(optarg));
+                this->num_threads = static_cast<uint16_t>(std::stoi(optarg));
                 break;
 
             case 'd':
-                args.duration = static_cast<uint32_t>(std::stoi(optarg));
+                this->duration = static_cast<uint32_t>(std::stoi(optarg));
                 break;
 
             case 'f': {
@@ -53,7 +87,7 @@ void parse_args(int argc, const char** argv, arguments& args) {
                 std::stringstream ss(filter_str);
                 std::string token;
                 while (std::getline(ss, token, ',')) {
-                    args.filter_list.push_back(token);
+                    this->filter_list.push_back(token);
                 }
                 break;
             }
@@ -65,7 +99,7 @@ void parse_args(int argc, const char** argv, arguments& args) {
         }
     }
 
-    if (args.dpdk_config == nullptr) {
+    if (this->dpdk_config == nullptr) {
         log_fatal("DPDK configuration string is required. Use -c option.");
     }
 }

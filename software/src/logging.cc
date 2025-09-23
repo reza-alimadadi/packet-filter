@@ -95,7 +95,7 @@ void current_time(char* buf) {
 }
 
 void Log::log(int level, int line, const char* file, const char* fmt, va_list args) {
-    static const char* level_str[] = {"FATAL", "ERROR", "WARN", "INFO", "DEBUG"};
+    static const char* level_str[] = {"F", "E", "W", "I", "D"};
     assert(level >= 0 && level <= Log::DEBUG);
     assert(file != nullptr);
 
