@@ -1,0 +1,6 @@
+*
+!.gitignore
+!*.tcl
+!*.py
+!*.sh
+

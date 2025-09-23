@@ -14,6 +14,12 @@ if [ ! -f "$BITSTREAM_FILE" ]; then
     exit 1
 fi
 
+check_vivado=$(which vivado)
+if [ "$check_vivado" == "" ]; then
+    echo "Vivado not found in PATH. Please source Vivado settings first."
+    exit 1
+fi
+
 # Check if onic module is loaded
 if lsmod | grep -q onic; then
     echo "onic module is loaded. Will remove it first."
@@ -25,11 +31,15 @@ DEVICE_BDF1=`lspci | grep Xilinx | awk 'NR==2{print $1}'`
 device_bdf0="0000:$DEVICE_BDF0"
 device_bdf1="0000:$DEVICE_BDF1"
 
+
 device0_path=$(find /sys/bus/pci/devices/ -type l -name "*$DEVICE_BDF0*")
 device1_path=$(find /sys/bus/pci/devices/ -type l -name "*$DEVICE_BDF1*")
 
 # Unbind devices from vfio-pci driver to allow FPGA programming
-sudo $SCRIPT_DIR/dpdk-devbind.py --unbind $DEVICE_BDF1 $DEVICE_BDF2
+if [[ $DEVICE_BDF0 != "" && $DEVICE_BDF1 != "" ]]; then
+    echo "Unbinding FPGA devices from vfio-pci driver..."
+    sudo $SCRIPT_DIR/dpdk-devbind.py --unbind $DEVICE_BDF0 $DEVICE_BDF1
+fi
 
 # Disabling error report to PCIe controller.
 if [ -z "$device0_path" ]; then
@@ -52,7 +62,7 @@ if [ "$TEST_BDF" == "" ]; then
     exit 1
 fi
 
-echo "Doing PCI-e link re-scan..."
+[ "$DEVICE_BDF0" != "" && "$DEVICE_BDF1" != "" ]; thenecho "Doing PCI-e link re-scan..."
 if [ -e "$device0_path" ]; then
     echo 1 | sudo tee "/sys/bus/pci/devices/${bridge_bdf}/${device_bdf0}/remove" >/dev/null
     if [ -e "$device1_path" ]; then

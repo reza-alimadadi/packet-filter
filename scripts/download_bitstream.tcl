@@ -11,7 +11,7 @@ refresh_hw_device -update_hw_probes false [lindex [get_hw_devices ${device}] 0]
 
 set_property PROBES.FILE {} [get_hw_devices ${device}]
 set_property FULL_PROBES.FILE {} [get_hw_devices ${device}]
-set_property PROGRAM.FILE ${bitstream} [get_hw_devices ${device}]
+set_property PROGRAM.FILE ${bitstream_file} [get_hw_devices ${device}]
 program_hw_devices [get_hw_devices ${device}]
 refresh_hw_device [lindex [get_hw_devices] 0]
 close_hw_manager
